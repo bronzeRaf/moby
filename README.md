@@ -6,13 +6,8 @@ Moby is a Docker-based CI tool to automate deployment into a staging server.
 - Configure a static IP address directly on the VM
 
 ```
-su
-```
-
-<enter password>
-
-```
-nano /etc/network/interfaces
+$ su
+$ nano /etc/network/interfaces
 ```
 
 [change the last line to look like this, remember to set the correct gateway for your router's IP address if it's not 192.168.1.1]
@@ -29,13 +24,15 @@ iface eth0 inet static
 - Install sudo
 
 ```
-apt-get update && apt-get install -y -q sudo
+$ apt-get update && apt-get install -y -q sudo
 ```
 
 - Add the user to the sudo group
 
 ```
-adduser ${SSH_USER} sudo
+$ su -l 
+$ adduser ${SSH_USER} sudo
+$ logout
 ```
 
 - Run the commands in: ${0} --help
@@ -43,7 +40,7 @@ adduser ${SSH_USER} sudo
 For Example:
 
 ```
-./deploy.sh -a
+$ ./deploy.sh -a
 ```
 
 
@@ -68,6 +65,7 @@ OPTIONS:
    -k|--ssh-key              Add SSH key
    -s|--ssh                  Configure secure SSH
    -d|--docker               Install Docker
+   -l|--docker-pull          Pull necessary Docker images
    -a|--all                  Provision everything except preseeding
 ```
 
@@ -85,6 +83,15 @@ $ deploy -s
 # Install Docker:
 $ deploy -d
 
+# Install custom Docker version:
+$ deploy -d 1.8.1
+
+# Pull necessary Docker images:
+$ deploy -l
+
 # Configure everything together:
 $ deploy -a
+
+# Configure everything together with a custom Docker version:
+$ deploy -a 1.8.1
 ```

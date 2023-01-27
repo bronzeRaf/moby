@@ -4,6 +4,9 @@
 SERVER_IP="${SERVER_IP:-192.168.1.99}"
 SSH_USER="${SSH_USER:-$(whoami)}"
 KEY_USER="${KEY_USER:-$(whoami)}"
+DOCKER_VERSION="${DOCKER_VERSION:-1.8.3}"
+
+DOCKER_PULL_IMAGES=("postgres:9.4.5" "redis:2.8.22")
 
 
 function preseed_staging() {
@@ -28,7 +31,7 @@ iface eth0 inet static
   4. Add the user to the sudo group
      adduser ${SSH_USER} sudo
 
-  5. Run the commands in: ${0} --help
+  5. Run the commands in: $0 --help
      Example:
        ./deploy.sh -a
 EOF
@@ -36,23 +39,23 @@ EOF
 
 function configure_sudo () {
   echo "Configuring passwordless sudo..."
-  scp -i "~/.ssh/moby.pub" "sudo/sudoers" "${SSH_USER}@${SERVER_IP}:/tmp/sudoers"
-  ssh -i "~/.ssh/moby.pub" -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+  scp "sudo/sudoers" "${SSH_USER}@${SERVER_IP}:/tmp/sudoers"
+  ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
 sudo chmod 440 /tmp/sudoers
 sudo chown root:root /tmp/sudoers
 sudo mv /tmp/sudoers /etc
-ls
   '"
   echo "done!"
 }
 
+
 function add_ssh_key() {
   echo "Adding SSH key..."
-  cat "$HOME/.ssh/moby.pub" | ssh  -i "~/.ssh/moby.pub" -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+  cat "$HOME/.ssh/id_rsa.pub" | ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
 mkdir /home/${KEY_USER}/.ssh
 cat >> /home/${KEY_USER}/.ssh/authorized_keys
     '"
-  ssh -i "~/.ssh/moby.pub" -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+  ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
 chmod 700 /home/${KEY_USER}/.ssh
 chmod 640 /home/${KEY_USER}/.ssh/authorized_keys
 sudo chown ${KEY_USER}:${KEY_USER} -R /home/${KEY_USER}/.ssh
@@ -62,8 +65,8 @@ sudo chown ${KEY_USER}:${KEY_USER} -R /home/${KEY_USER}/.ssh
 
 function configure_secure_ssh () {
   echo "Configuring secure SSH..."
-  scp -i "~/.ssh/moby.pub" "ssh/sshd_config" "${SSH_USER}@${SERVER_IP}:/tmp/sshd_config"
-  ssh -i "~/.ssh/moby.pub" -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+  scp "ssh/sshd_config" "${SSH_USER}@${SERVER_IP}:/tmp/sshd_config"
+  ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
 sudo chown root:root /tmp/sshd_config
 sudo mv /tmp/sshd_config /etc/ssh
 sudo systemctl restart ssh
@@ -72,14 +75,24 @@ sudo systemctl restart ssh
 }
 
 function install_docker () {
-  echo "Configuring Docker..."
-  ssh -i "~/.ssh/moby.pub" -t "${SSH_USER}@${SERVER_IP}" bash -c "'
-sudo apt-get update && sudo apt-get install -y curl
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-rm get-docker.sh
+  echo "Configuring Docker v${1}..."
+  ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+sudo apt-get update
+sudo apt-get install -y -q libapparmor1 aufs-tools ca-certificates
+wget -O "docker.deb https://apt.dockerproject.org/repo/pool/main/d/docker-engine/docker-engine_${1}-0~jessie_amd64.deb"
+sudo dpkg -i docker.deb
+rm docker.deb
 sudo usermod -aG docker "${KEY_USER}"
   '"
+  echo "done!"
+}
+
+function docker_pull () {
+  echo "Pulling Docker images..."
+  for image in "${DOCKER_PULL_IMAGES[@]}"
+  do
+    ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'docker pull ${image}'"
+  done
   echo "done!"
 }
 
@@ -90,12 +103,14 @@ function provision_server () {
   echo "---"
   configure_secure_ssh
   echo "---"
-  install_docker
+  install_docker ${1}
+  echo "---"
+  docker_pull
 }
 
 function help_menu () {
 cat << EOF
-Usage: ${0} (-h | -S | -u | -k | -s | -d | -a)
+Usage: ${0} (-h | -S | -u | -k | -s | -d [docker_ver] | -l | -a [docker_ver])
 
 ENVIRONMENT VARIABLES:
    SERVER_IP        IP address to work on, ie. staging or production
@@ -107,6 +122,9 @@ ENVIRONMENT VARIABLES:
    KEY_USER         User account linked to the SSH key
                     Defaulting to ${KEY_USER}
 
+   DOCKER_VERSION   Docker version to install
+                    Defaulting to ${DOCKER_VERSION}
+
 OPTIONS:
    -h|--help                 Show this message
    -S|--preseed-staging      Preseed intructions for the staging server
@@ -114,6 +132,7 @@ OPTIONS:
    -k|--ssh-key              Add SSH key
    -s|--ssh                  Configure secure SSH
    -d|--docker               Install Docker
+   -l|--docker-pull          Pull necessary Docker images
    -a|--all                  Provision everything except preseeding
 
 EXAMPLES:
@@ -126,11 +145,20 @@ EXAMPLES:
    Configure secure SSH:
         $ deploy -s
 
-   Install Docker:
+   Install Docker v${DOCKER_VERSION}:
         $ deploy -d
+
+   Install custom Docker version:
+        $ deploy -d 1.8.1
+
+   Pull necessary Docker images:
+        $ deploy -l
 
    Configure everything together:
         $ deploy -a
+
+   Configure everything together with a custom Docker version:
+        $ deploy -a 1.8.1
 EOF
 }
 
@@ -155,11 +183,15 @@ case "${1}" in
   shift
   ;;
   -d|--docker)
-  install_docker
+  install_docker "${2:-${DOCKER_VERSION}}"
+  shift
+  ;;
+  -l|--docker-pull)
+  docker_pull
   shift
   ;;
   -a|--all)
-  provision_server
+  provision_server "${2:-${DOCKER_VERSION}}"
   shift
   ;;
   -h|--help)
