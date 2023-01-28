@@ -66,6 +66,7 @@ OPTIONS:
    -s|--ssh                  Configure secure SSH
    -d|--docker               Install Docker
    -l|--docker-pull          Pull necessary Docker images
+   -g|--git-init             Install and initialize git
    -a|--all                  Provision everything except preseeding
 ```
 
@@ -88,6 +89,9 @@ $ deploy -d 1.8.1
 
 # Pull necessary Docker images:
 $ deploy -l
+
+# Install and initialize git:
+$ deploy -g
 
 # Configure everything together:
 $ deploy -a
