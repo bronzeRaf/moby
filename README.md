@@ -43,6 +43,12 @@ For Example:
 $ ./deploy.sh -a
 ```
 
+Then you should be able to add a git push level CI to your staging server using 
+
+```
+git remote add staging ssh://raf@192.168.1.99:/var/git/mobydock.git
+``` 
+
 
 ## Option and Usage
 Usage: ${0} (-h | -S | -u | -k | -s | -d | -a)
@@ -67,6 +73,7 @@ OPTIONS:
    -d|--docker               Install Docker
    -l|--docker-pull          Pull necessary Docker images
    -g|--git-init             Install and initialize git
+   -f|--firewall             Configure the iptables firewall
    -a|--all                  Provision everything except preseeding
 ```
 
@@ -92,6 +99,9 @@ $ deploy -l
 
 # Install and initialize git:
 $ deploy -g
+
+# Configure the iptables firewall:
+$ deploy -f
 
 # Configure everything together:
 $ deploy -a
