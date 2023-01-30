@@ -74,6 +74,8 @@ OPTIONS:
    -l|--docker-pull          Pull necessary Docker images
    -g|--git-init             Install and initialize git
    -f|--firewall             Configure the iptables firewall
+   -c|--copy--units          Copy systemd unit files
+   -b|--enable-base-units    Enable base systemd unit files
    -a|--all                  Provision everything except preseeding
 ```
 
@@ -102,6 +104,12 @@ $ deploy -g
 
 # Configure the iptables firewall:
 $ deploy -f
+
+# Copy systemd unit files:
+$ deploy -c
+
+# Enable base systemd unit files:
+$ deploy -b
 
 # Configure everything together:
 $ deploy -a
